@@ -18,18 +18,18 @@ fi
 log "Installing OpenCode for Termux..."
 log "Checking dependencies..."
 
-apt install -y glibc-repo
-apt update
-apt install -y glibc openssl-glibc
+apt install -y glibc-repo 2>/dev/null
+apt update 2>/dev/null
+apt install -y glibc openssl-glibc 2>/dev/null
 
 log "Dependencies ready."
 
 if [ "$VERSION" = "latest" ]; then
   log "Fetching latest version from GitHub..."
   API_URL="https://api.github.com/repos/$REPO/releases/latest"
-  VERSION=$(curl -fsSL "$API_URL" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])" 2>/dev/null || true)
+  VERSION=$(curl -fsSL "$API_URL" | grep -o '"tag_name":"[^"]*"' | cut -d'"' -f4)
   if [ -z "$VERSION" ]; then
-    die "Failed to fetch latest version. Check network or specify version: ./install-opencode.sh v1.15.13"
+    die "Failed to fetch latest version. Try: ./install-opencode.sh 1.15.13"
   fi
   VERSION="${VERSION#v}"
   log "Latest version: $VERSION"
@@ -40,11 +40,11 @@ DEB_URL="https://github.com/$REPO/releases/download/v$VERSION/opencode_${VERSION
 DEB_FILE="opencode_${VERSION}_aarch64.deb"
 
 log "Downloading $DEB_FILE ..."
-curl -fL -o "/tmp/$DEB_FILE" "$DEB_URL" || die "Download failed. Check version: $VERSION"
+curl -fL -o "/tmp/$DEB_FILE" "$DEB_URL" || die "Download failed."
 
 log "Installing..."
 dpkg -i "/tmp/$DEB_FILE" || {
-  warn "dpkg failed, fixing dependencies..."
+  warn "Fixing dependencies..."
   apt install -f -y
   dpkg -i "/tmp/$DEB_FILE"
 }
