@@ -16,6 +16,22 @@ if [ "$(uname -m)" != "aarch64" ]; then
 fi
 
 log "Installing OpenCode for Termux..."
+
+if [ "$VERSION" = "latest" ]; then
+  log "Fetching latest version from GitHub..."
+  VERSION=$(curl -sSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep -o '"tag_name":"[^"]*"' | cut -d'"' -f4 || true)
+  VERSION="${VERSION#v}"
+  if [ -z "$VERSION" ]; then
+    log "GitHub API unavailable, trying fallback..."
+    VERSION=$(curl -sSL "https://github.com/$REPO/releases" 2>/dev/null | grep -oP '/releases/tag/v?\K[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+  fi
+  if [ -z "$VERSION" ]; then
+    die "Failed to detect latest version. Specify manually: install-opencode.sh 1.15.13"
+  fi
+  log "Latest version: $VERSION"
+fi
+
+VERSION="${VERSION#v}"
 log "Checking dependencies..."
 
 apt install -y glibc-repo 2>/dev/null
@@ -24,23 +40,11 @@ apt install -y glibc openssl-glibc 2>/dev/null
 
 log "Dependencies ready."
 
-if [ "$VERSION" = "latest" ]; then
-  log "Fetching latest version from GitHub..."
-  API_URL="https://api.github.com/repos/$REPO/releases/latest"
-  VERSION=$(curl -fsSL "$API_URL" | grep -o '"tag_name":"[^"]*"' | cut -d'"' -f4)
-  if [ -z "$VERSION" ]; then
-    die "Failed to fetch latest version. Try: ./install-opencode.sh 1.15.13"
-  fi
-  VERSION="${VERSION#v}"
-  log "Latest version: $VERSION"
-fi
-
-VERSION="${VERSION#v}"
 DEB_URL="https://github.com/$REPO/releases/download/v$VERSION/opencode_${VERSION}_aarch64.deb"
 DEB_FILE="opencode_${VERSION}_aarch64.deb"
 
 log "Downloading $DEB_FILE ..."
-curl -fL -o "/tmp/$DEB_FILE" "$DEB_URL" || die "Download failed."
+curl -fL -o "/tmp/$DEB_FILE" "$DEB_URL" || die "Download failed from: $DEB_URL"
 
 log "Installing..."
 dpkg -i "/tmp/$DEB_FILE" || {
