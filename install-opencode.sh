@@ -14,10 +14,9 @@ command -v curl >/dev/null 2>&1 || die "curl required (apt install curl)"
 
 if [ "$VERSION" = "latest" ]; then
   log "Detecting latest version..."
-  VERSION=$(curl -sL "https://api.github.com/repos/$REPO/releases/latest" \
-    | grep -o '"tag_name":"[^"]*"' | cut -d'"' -f4)
-  VERSION="${VERSION#v}"
-  [ -n "$VERSION" ] || die "Version detection failed. Usage: install-opencode.sh 1.15.13"
+  VERSION=$(curl -sL -o /dev/null -w '%{url_effective}' \
+    "https://github.com/$REPO/releases/latest" | grep -o 'tag/v[0-9.]*' | grep -o '[0-9].*')
+  [ -n "$VERSION" ] || die "Failed. Specify version: install-opencode.sh 1.15.13"
   log "Latest: $VERSION"
 fi
 
