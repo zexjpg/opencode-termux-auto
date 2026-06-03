@@ -6,7 +6,7 @@ OPENCODE_RUNTIME="$SELF_DIR/../lib/opencode/runtime/opencode"
 
 cleanup_tty_full() {
   if [ -t 1 ]; then
-    printf '\''\033[?1049l\033[?25h\033[0m'\'' >/dev/tty 2>/dev/null || true
+    printf '\033[?1049l\033[?25h\033[0m' >/dev/tty 2>/dev/null || true
   fi
   command -v stty >/dev/null 2>&1 && stty sane 2>/dev/null || true
   command -v tput >/dev/null 2>&1 && tput rmcup >/dev/null 2>&1 || true
@@ -15,7 +15,7 @@ cleanup_tty_full() {
 cleanup_tty_soft() {
   command -v stty >/dev/null 2>&1 && stty sane 2>/dev/null || true
   if [ -t 1 ]; then
-    printf '\''\033[?25h\033[0m'\'' >/dev/tty 2>/dev/null || true
+    printf '\033[?25h\033[0m' >/dev/tty 2>/dev/null || true
   fi
 }
 
