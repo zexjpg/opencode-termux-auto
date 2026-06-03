@@ -1,0 +1,8 @@
+# Build artifacts
+artifacts/
+packaging/deb/work/
+packaging/pacman/.PKGBUILD.tmp
+packaging/pacman/pkg/
+packaging/pacman/src/
+*.deb
+*.pkg.tar.xz

@@ -1,0 +1,114 @@
+name: Auto-build OpenCode for Termux
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_version:
+        description: 'Force specific version (e.g., 1.15.7)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      should_build: ${{ steps.check.outputs.should_build }}
+    steps:
+      - name: Check for new version
+        id: check
+        shell: bash
+        run: |
+          LATEST=$(npm view opencode-linux-arm64 version 2>/dev/null)
+          FORCE="${{ github.event.inputs.force_version }}"
+          if [[ -n "$FORCE" ]]; then
+            LATEST="$FORCE"
+          fi
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+          LAST_RELEASE=$(gh release list --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
+          LAST_RELEASE="${LAST_RELEASE#v}"
+          if [[ "$LATEST" != "$LAST_RELEASE" || -n "$FORCE" ]]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "New version: $LATEST (previous: $LAST_RELEASE)"
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "No update needed. Latest: $LATEST"
+          fi
+
+  build:
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU for aarch64
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-user-static binfmt-support
+      - name: Install dependencies
+        run: sudo apt-get install -y -qq dpkg-dev curl
+      - name: Download binary from npm
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          mkdir -p artifacts
+          npm pack "opencode-linux-arm64@$VERSION" 2>&1
+          tar -xzf opencode-linux-arm64-*.tgz 2>&1
+          cp package/bin/opencode artifacts/opencode-linux-arm64
+          chmod +x artifacts/opencode-linux-arm64
+          file artifacts/opencode-linux-arm64
+      - name: Wrap with bun-termux-loader
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          curl -fL -o wrapper "https://github.com/Hope2333/opencode-termux/raw/pure-android/tools/prebuilt/wrapper"
+          curl -fL -o bunfs_shim.so "https://github.com/Hope2333/opencode-termux/raw/pure-android/tools/prebuilt/bunfs_shim.so"
+          chmod +x wrapper
+          git clone --depth 1 https://github.com/Hope2333/bun-termux-loader.git 2>&1
+          cp wrapper bun-termux-loader/wrapper
+          cp bunfs_shim.so bun-termux-loader/bunfs_shim.so
+          python3 bun-termux-loader/build.py artifacts/opencode-linux-arm64 --wrapper bun-termux-loader/wrapper --shim bun-termux-loader/bunfs_shim.so 2>&1
+          cp "artifacts/opencode-linux-arm64-termux" "artifacts/opencode-termux-aarch64"
+          file artifacts/opencode-termux-aarch64
+      - name: Stage prefix tree
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          PREFIX_DIR="artifacts/staged/prefix"
+          mkdir -p "$PREFIX_DIR/lib/opencode/runtime"
+          mkdir -p "$PREFIX_DIR/bin"
+          install -m 755 artifacts/opencode-termux-aarch64 "$PREFIX_DIR/lib/opencode/runtime/opencode"
+          install -m 755 scripts/launcher.sh "$PREFIX_DIR/bin/opencode"
+      - name: Build deb package
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          bash scripts/build-deb.sh "$VERSION"
+      - name: Build pacman package
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          bash scripts/build-pacman.sh "$VERSION"
+      - name: Create Release and Upload
+        shell: bash
+        run: |
+          VERSION="${{ needs.check.outputs.version }}"
+          RELEASE_TAG="v$VERSION"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG exists, updating..."
+          else
+            gh release create "$RELEASE_TAG" --title "OpenCode for Termux v$VERSION" --notes "Automated build of OpenCode v$VERSION for Termux (aarch64)." --repo "${{ github.repository }}"
+          fi
+          for f in artifacts/opencode-termux-aarch64 packaging/deb/opencode_*.deb packaging/pacman/opencode-*.pkg.tar.xz; do
+            if [ -f "$f" ]; then
+              gh release upload "$RELEASE_TAG" "$f" --clobber --repo "${{ github.repository }}"
+            fi
+          done

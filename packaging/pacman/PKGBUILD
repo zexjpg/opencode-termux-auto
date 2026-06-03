@@ -1,0 +1,24 @@
+pkgname=opencode
+pkgver=1.0.0
+pkgrel=1
+pkgdesc='OpenCode for Termux (auto-build)'
+arch=('aarch64')
+url='https://github.com/anomalyco/opencode'
+license=('MIT')
+options=('!strip' '!debug')
+
+_prefix="${PREFIX:-/data/data/com.termux/files/usr}"
+_repo_root="${REPO_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+_staged_prefix="${STAGED_PREFIX:-${_repo_root}/artifacts/staged/prefix}"
+
+prepare() {
+  [[ -x "${_staged_prefix}/lib/opencode/runtime/opencode" ]] || { error "missing runtime"; return 1; }
+  [[ -x "${_staged_prefix}/bin/opencode" ]] || { error "missing launcher"; return 1; }
+}
+
+build() { true; }
+
+package() {
+  mkdir -p "$pkgdir${_prefix}"
+  cp -a "${_staged_prefix}/." "$pkgdir${_prefix}/"
+}
