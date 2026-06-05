@@ -45,6 +45,15 @@ opencode run "hello"
 opencode run --mode=dev .
 opencode serve
 opencode web
+
+# Android 版本（Android 12+）有 seccomp 限制，opencode web --hostname 0.0.0.0 就需要 proot -0 来绕过。
+# 安装proot
+pkg update && pkg install proot
+
+#运行
+proot -0 opencode web --hostname 0.0.0.0
+# 或指定域名或IP,假如手机IP是192.168.1.100
+opencode web --hostname 192.168.1.100
 ```
 
 ## Credits
