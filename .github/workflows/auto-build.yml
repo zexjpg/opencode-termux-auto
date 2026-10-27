@@ -68,9 +68,10 @@ jobs:
       - name: Wrap with bun-termux-loader
         shell: bash
         run: |
+          set -euo pipefail
           VERSION="${{ needs.check.outputs.version }}"
-          curl -fL -o wrapper "https://github.com/Hope2333/opencode-termux/raw/pure-android/tools/prebuilt/wrapper"
-          curl -fL -o bunfs_shim.so "https://github.com/Hope2333/opencode-termux/raw/pure-android/tools/prebuilt/bunfs_shim.so"
+          curl -fL -o wrapper "https://github.com/Hope2333/opencode-termux/raw/glibc/tools/prebuilt/wrapper"
+          curl -fL -o bunfs_shim.so "https://github.com/Hope2333/opencode-termux/raw/glibc/tools/prebuilt/bunfs_shim.so"
           chmod +x wrapper
           git clone --depth 1 https://github.com/Hope2333/bun-termux-loader.git 2>&1
           cp wrapper bun-termux-loader/wrapper
