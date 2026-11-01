@@ -33,14 +33,15 @@ jobs:
             LATEST="$FORCE"
           fi
           echo "version=$LATEST" >> $GITHUB_OUTPUT
-          LAST_RELEASE=$(gh release list --limit 1 --json tagName -q '.[0].tagName' 2>/dev/null || echo "")
-          LAST_RELEASE="${LAST_RELEASE#v}"
-          if [[ "$LATEST" != "$LAST_RELEASE" || -n "$FORCE" ]]; then
+          if [[ -n "$FORCE" ]]; then
             echo "should_build=true" >> $GITHUB_OUTPUT
-            echo "New version: $LATEST (previous: $LAST_RELEASE)"
-          else
+            echo "Forced build for version: $LATEST"
+          elif gh release view "v$LATEST" >/dev/null 2>&1; then
             echo "should_build=false" >> $GITHUB_OUTPUT
-            echo "No update needed. Latest: $LATEST"
+            echo "Version $LATEST already released. No update needed."
+          else
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "New version: $LATEST (not yet released)"
           fi
 
   build:
@@ -49,10 +50,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up QEMU for aarch64
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-user-static binfmt-support
       - name: Install dependencies
         run: sudo apt-get install -y -qq dpkg-dev curl
       - name: Download binary from npm
