@@ -2,3 +2,7 @@
 *.sh text eol=lf
 *.yml text eol=lf
 *.md text eol=lf
+
+# Vendored prebuilt ELF binaries - never apply LF/CRLF conversion
+tools/prebuilt/wrapper -text
+tools/prebuilt/bunfs_shim.so -text

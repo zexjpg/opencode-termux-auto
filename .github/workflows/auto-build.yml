@@ -66,13 +66,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${{ needs.check.outputs.version }}"
-          curl -fL -o wrapper "https://github.com/Hope2333/opencode-termux/raw/glibc/tools/prebuilt/wrapper"
-          curl -fL -o bunfs_shim.so "https://github.com/Hope2333/opencode-termux/raw/glibc/tools/prebuilt/bunfs_shim.so"
-          chmod +x wrapper
+          # Prebuilt wrapper/shim are vendored in tools/prebuilt/ so the build
+          # no longer breaks when the upstream opencode-termux branch is renamed.
+          test -f tools/prebuilt/wrapper
+          test -f tools/prebuilt/bunfs_shim.so
+          chmod +x tools/prebuilt/wrapper
           git clone --depth 1 https://github.com/Hope2333/bun-termux-loader.git 2>&1
-          cp wrapper bun-termux-loader/wrapper
-          cp bunfs_shim.so bun-termux-loader/bunfs_shim.so
+          if ! git -C bun-termux-loader cat-file -e a440b9ca01f14f4ad3d514c8522364b018c66ed3^{commit} 2>/dev/null; then
+            git -C bun-termux-loader fetch --quiet --depth 1 origin a440b9ca01f14f4ad3d514c8522364b018c66ed3
+          fi
+          git -C bun-termux-loader checkout --quiet a440b9ca01f14f4ad3d514c8522364b018c66ed3
+          cp tools/prebuilt/wrapper bun-termux-loader/wrapper
+          cp tools/prebuilt/bunfs_shim.so bun-termux-loader/bunfs_shim.so
           python3 bun-termux-loader/build.py artifacts/opencode-linux-arm64 --wrapper bun-termux-loader/wrapper --shim bun-termux-loader/bunfs_shim.so 2>&1
           cp "artifacts/opencode-linux-arm64-termux" "artifacts/opencode-termux-aarch64"
           file artifacts/opencode-termux-aarch64
